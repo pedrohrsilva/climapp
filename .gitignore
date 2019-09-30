@@ -82,4 +82,4 @@ lint/outputs/
 lint/tmp/
 # lint/reports/
 
-#*map_api.xml
+*map_api.xml

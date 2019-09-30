@@ -1,20 +1,17 @@
 package com.example.climaapp;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
-import androidx.core.content.ContextCompat;
-import androidx.fragment.app.FragmentActivity;
-
 import android.Manifest;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
+import androidx.fragment.app.FragmentActivity;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -31,16 +28,25 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.iid.FirebaseInstanceId;
+import com.google.firebase.iid.InstanceIdResult;
+import com.inlocomedia.android.core.permissions.PermissionResult;
+import com.inlocomedia.android.core.permissions.PermissionsListener;
+import com.inlocomedia.android.engagement.InLocoEngagement;
+import com.inlocomedia.android.engagement.InLocoEngagementOptions;
+import com.inlocomedia.android.engagement.request.FirebasePushProvider;
+import com.inlocomedia.android.engagement.request.PushProvider;
 
 import org.json.JSONException;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 
 public class MainActivity extends FragmentActivity implements OnMapReadyCallback, GoogleMap.OnMapClickListener {
 
-    private static final int MY_PERMISSIONS_REQUEST = 144563;
-    private String[] permissions = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.INTERNET};
+    private String[] permissions = {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.INTERNET, Manifest.permission.ACCESS_NETWORK_STATE, Manifest.permission.ACCESS_WIFI_STATE, Manifest.permission.CHANGE_WIFI_STATE, Manifest.permission.ACTIVITY_RECOGNITION, Manifest.permission.RECEIVE_BOOT_COMPLETED};
     private GoogleMap map;
     private Marker marker;
     private Boolean toggle = true;
@@ -51,7 +57,8 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        requestMultiplePermissions();
+        getPermissions();
+        fireBaseConfig();
 
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -59,12 +66,40 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
 
         queue = Volley.newRequestQueue(this);
 
+        InLocoEngagementOptions options = InLocoEngagementOptions.getInstance(this);
+        options.setApplicationId(getString(R.string.inloco_key));
+        options.setLogEnabled(true);
+        options.setDevelopmentDevices("D5EF1C61A416BEB6B15AFDF1C7FBD3F5");
+        InLocoEngagement.init(this, options);
+        InLocoEngagement.setUserId(this, "TEST_USER");
+
         Button searchButton = (Button) findViewById(R.id.search_button);
         searchButton.setOnClickListener(new View.OnClickListener(){
             public void onClick(View v){
                 requestCitiesFromOpenWeather(marker.getPosition());
             }
         });
+    }
+
+    private void fireBaseConfig(){
+        FirebaseInstanceId.getInstance().getInstanceId()
+                .addOnCompleteListener(new OnCompleteListener<InstanceIdResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<InstanceIdResult> task) {
+                        if (!task.isSuccessful()) {
+                            Log.w("FIREBASE_TEST", "getInstanceId failed", task.getException());
+                            return;
+                        }
+
+                        // Get new Instance ID token
+                        String token = task.getResult().getToken();
+                        final PushProvider pushProvider = new FirebasePushProvider.Builder()
+                                .setFirebaseToken(token)
+                                .build();
+                        InLocoEngagement.setPushProvider(getActivity(), pushProvider);
+                        Log.d("InLocoMedia", "Token: "+ token);
+                    }
+                });
     }
 
     private void openCityListActivity(){
@@ -122,49 +157,19 @@ public class MainActivity extends FragmentActivity implements OnMapReadyCallback
         marker.showInfoWindow();
     }
 
-    private boolean isPermissionGranted(String permission){
-        return  ContextCompat.checkSelfPermission(this, permission ) == PackageManager.PERMISSION_GRANTED;
-    }
+    private void getPermissions(){
+        final boolean askIfDenied = true; // Will prompt the user if he has previously denied the permission
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    private void requestMultiplePermissions(){
-        List<String> remainingPermissions = new ArrayList<>();
-        for (String permission : permissions) {
-            if (!isPermissionGranted(permission)) {
-                remainingPermissions.add(permission);
+        InLocoEngagement.requestPermissions(this, permissions, askIfDenied, new PermissionsListener() {
+
+            @Override
+            public void onPermissionRequestCompleted(final HashMap<String, PermissionResult> authorized) {
+                if (authorized.get(Manifest.permission.ACCESS_FINE_LOCATION).isAuthorized()) {
+                    // Permission enabled
+                }
             }
-        }
-        if(remainingPermissions.size()>0) {
-            requestPermissions(remainingPermissions.toArray(new String[remainingPermissions.size()]), MY_PERMISSIONS_REQUEST);
-        }
+        });
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NonNull String[] permissions, @NonNull int[] grantResults) {
 
-        switch (requestCode) {
-            case MY_PERMISSIONS_REQUEST:
-                if (grantResults.length > 0) {
-                    boolean isAllGranted = true;
-                    for (int permission:grantResults) {
-                        isAllGranted = isAllGranted && permission == PackageManager.PERMISSION_GRANTED;
-                    }
-                    if(!isAllGranted){
-                        Toast toast = Toast.makeText(this, "Por favor, certifique-se de dar as permissões a este App.", Toast.LENGTH_LONG);
-                        toast.show();
-                        Handler handler = new Handler();
-                        handler.postDelayed(new Runnable() {
-                            @Override
-                            public void run() {
-                                System.exit(-1);
-                            }
-                        }, 5000);
-                    }
-                    }
-
-
-
-        }
-    }
 }
