@@ -12,5 +12,8 @@ openweather_key => Chave para acesso ao [Open Weather](https://home.openweatherm
 
 inloco_key => Chave para acesso a API [In Loco](https://docs.inlocoforapps.com/docs/creating-an-application)
 
+## google-services.json
+Além das chaves é necessário adicionar o arquivo google-services.json gerado no console do Firebase para a aplicação.
+
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
