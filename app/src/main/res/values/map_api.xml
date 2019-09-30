@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+<string name="map_key" translatable="false">
+    API_GOOGLE_MAPS
+</string>
+
+<string name="openweather_key" translatable="false">
+    API_OPEN_WEATHER
+</string>
+<string name="inloco_key">
+    API_IN_LOCO
+</string>
+
+
+</resources>
